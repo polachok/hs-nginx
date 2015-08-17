@@ -1,10 +1,10 @@
 {-# LANGUAGE DataKinds, FlexibleInstances #-}
 module Nginx.Types(Context(..),
-             Switch,
-             Size,
+             Switch(..),
+             Size(..),
              ValueOrOff) where
 
-data Context = HttpContext | ServerContext | LocationContext | IfContext
+data Context = MainContext | EventsContext | HttpContext | ServerContext | LocationContext | IfContext
     deriving (Show)
 
 data Switch = On | Off

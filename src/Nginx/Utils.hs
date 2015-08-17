@@ -1,11 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Nginx.Utils(intValueDirective, textValueDirective, keyValueDirective, followedBy, skipComment) where
+module Nginx.Utils(intValueDirective, textValueDirective, keyValueDirective,
+                   numAndSizeDirective, switchDirective, sizeDirective,
+                   size, followedBy, skipComment) where
 
 import Control.Applicative
 import Data.Attoparsec.Text
 import Data.Text (Text)
 import Data.Char (isSpace)
 import Control.Monad (void)
+
+import Nginx.Types (Switch(..),Size(..))
 
 skipComment :: Parser ()
 skipComment = skipSpace *> char '#' *> (void $ takeWhile1 (not.isEndOfLine)) <* skipSpace
@@ -21,6 +25,23 @@ keyValueDirective name = do
     key <- (string name *> skipSpace *> takeWhile1 (not.isSpace) <* skipSpace)
     val <- takeWhile1 (/= ';') <* char ';'
     return (key, val)
+
+switchDirective :: Text -> Parser Switch
+switchDirective name = do
+    string name *> skipSpace
+    sw <- (string "on" *> return On) <|> (string "off" *> return Off)
+    skipSpace
+    char ';'
+    return sw
+
+size :: Parser Size
+size = Size <$> decimal <*> (char 'k' <|> char 'm')
+
+sizeDirective :: Text -> Parser Size
+sizeDirective name = string name *> skipSpace *> size <* skipSpace <* char ';'
+
+numAndSizeDirective :: Text -> Parser (Integer, Size)
+numAndSizeDirective name = (,) <$> (string name *> skipSpace *> decimal) <*> (skipSpace *> size <* skipSpace <* char ';')
 
 followedBy :: Alternative f => f a -> f b -> f ([a], b)
 followedBy p end = scan
