@@ -2,7 +2,10 @@
 module Nginx.Types(Context(..),
              Switch(..),
              Size(..),
-             ValueOrOff) where
+             ValueOrOff,
+             Serializable, serialize) where
+
+import Data.Text (Text)
 
 data Context = MainContext | EventsContext | HttpContext | ServerContext | LocationContext | IfContext
     deriving (Show)
@@ -15,3 +18,6 @@ data Size = Size Integer Char
 
 data ValueOrOff a = Value a | Off_ 
     deriving (Show)
+
+class Show a => Serializable a where
+    serialize :: a -> Text
