@@ -29,7 +29,7 @@ data HttpDirective (a :: Context) where
     IndexDirective :: Text -> HttpDirective a
     BreakDirective :: HttpDirective a
     RewriteDirective :: Text -> HttpDirective a
-    ErrorPageDirective :: Integer -> Text -> HttpDirective a
+    ErrorPageDirective :: [Integer] -> Text -> HttpDirective a
     AccessLogDirective :: Text -> HttpDirective a
     ExpiresDirective :: Text -> HttpDirective a
     CharsetDirective :: Text -> HttpDirective a
@@ -57,7 +57,7 @@ data HttpDirective (a :: Context) where
     SendfileDirective :: Switch -> HttpDirective a
     TcpNopushDirective :: Switch -> HttpDirective a
     TcpNodelayDirective :: Switch -> HttpDirective a
-    KeepaliveTimeoutDirective :: Integer -> Integer -> HttpDirective a
+    KeepaliveTimeoutDirective :: Integer -> Maybe Integer -> HttpDirective a
     SendFileDirective :: Switch -> HttpDirective a
 
 deriving instance Show (HttpDirective a)
@@ -77,9 +77,9 @@ data MatchOp = MatchOpAsterisk deriving (Show)
 data EqOp = EqOpEquals | EqOpNotEquals deriving (Show)
 data RewriteFlag = RewriteLast | RewriteBreak | RewriteRedirect | RewritePermanent deriving (Show)
 
-http = httpDirective `sepBy` (skipComment <|> skipSpace)
+http = httpDirective `sepBy` directiveSeparator
 
-server = ServerDirective <$> (string "server" *> some space *> char '{' *> (serverDirective `sepBy` (skipComment <|> skipSpace)) <* skipSpace <* char '}')
+server = ServerDirective <$> (string "server" *> some space *> char '{' *> (serverDirective `sepBy` directiveSeparator) <* optional directiveSeparator <* char '}')
 
 httpDirective = include <|> defaultType <|> logFormat <|> accessLog <|> clientMaxBodySize <|> clientBodyBufferSize
                 <|> disableSymlinks <|> sendFile <|> tcpNopush <|> keepaliveTimeout <|> tcpNodelay
@@ -90,6 +90,7 @@ httpDirective = include <|> defaultType <|> logFormat <|> accessLog <|> clientMa
                 <|> (ProxyDirective <$> proxyDirective)
                 <|> (GzipDirective <$> gzipDirective)
                 <|> (SslDirective <$> sslDirective)
+                <|> server <|> index
 serverDirective = listen <|> serverName <|> ifD <|> location <|> errorPage <|> accessLog
              <|> expires <|> charset <|> index
              <|> include <|> disableSymlinks <|> root
@@ -97,6 +98,8 @@ serverDirective = listen <|> serverName <|> ifD <|> location <|> errorPage <|> a
              <|> (ProxyDirective <$> proxyDirective)
              <|> (GzipDirective <$> gzipDirective)
              <|> (SslDirective <$> sslDirective)
+             <|> errorPage
+             <|> accessLog
 locationDirective = internal <|> root <|> rewrite <|> break <|> ifD <|> errorPage <|> accessLog
              <|> expires <|> charset <|> index <|> disableSymlinks
              <|> returnD
@@ -112,7 +115,7 @@ root = RootDirective <$> (string "root" *> skipSpace *> takeWhile1 (/= ';') <* c
 break = string "break" *> char ';' *> return BreakDirective
 
 -- todo
-errorPage = ErrorPageDirective <$> (string "error_page" *> skipSpace *> decimal <* skipSpace) <*> (char '=' *> skipSpace *> (takeWhile1 (/= ';')) <* char ';')
+errorPage = ErrorPageDirective <$> (string "error_page" *> skipSpace *> some (decimal <* skipSpace)) <*> (optional (char '=') *> skipSpace *> (takeWhile1 (/= ';')) <* char ';')
 rewrite = RewriteDirective <$> textValueDirective "rewrite" -- not really
 accessLog = AccessLogDirective <$> textValueDirective "access_log"
 expires = ExpiresDirective <$> textValueDirective "expires"
@@ -132,7 +135,7 @@ clientHeaderTimeout = ClientHeaderTimeoutDirective <$> intValueDirective "client
 clientBodyTimeout = ClientBodyTimeoutDirective <$> intValueDirective "client_body_timeout"
 clientHeaderBufferSize = ClientHeaderBufferSizeDirective <$> sizeDirective "client_header_buffer_size"
 largeClientHeaderBuffers = (uncurry LargeClientHeaderBuffersDirective) <$> numAndSizeDirective "large_client_header_buffers"
-keepaliveTimeout = KeepaliveTimeoutDirective <$> (string "keepalive_timeout" *> skipSpace *> decimal) <*> (skipSpace *> decimal <* char ';')
+keepaliveTimeout = KeepaliveTimeoutDirective <$> (string "keepalive_timeout" *> skipSpace *> decimal) <*> (optional (skipSpace *> decimal)) <* char ';'
 sendTimeout = SendTimeoutDirective <$> intValueDirective "send_timeout"
 outputBuffers = (uncurry OutputBuffersDirective) <$> numAndSizeDirective "output_buffers"
 serverNamesHashMaxSize = ServerNamesHashMaxSizeDirective <$> intValueDirective "server_names_hash_max_size"
