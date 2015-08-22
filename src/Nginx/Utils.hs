@@ -1,10 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Nginx.Utils(intValueDirective, textValueDirective, keyValueDirective,
                    numAndSizeDirective, switchDirective, sizeDirective,
-                   size, followedBy, skipComment) where
+                   size, followedBy, skipComment, directiveSeparator) where
 
 import Control.Applicative
 import Data.Attoparsec.Text
+import qualified Data.Attoparsec.Text as AP
 import Data.Text (Text)
 import Data.Char (isSpace)
 import Control.Monad (void)
@@ -12,7 +13,10 @@ import Control.Monad (void)
 import Nginx.Types (Switch(..),Size(..))
 
 skipComment :: Parser ()
-skipComment = skipSpace *> char '#' *> (void $ takeWhile1 (not.isEndOfLine)) <* skipSpace
+skipComment = char '#' *> (void $ AP.takeWhile (not.isEndOfLine))
+
+directiveSeparator :: Parser ()
+directiveSeparator = (some $ skipComment <|> (void $ some space)) *> return ()
 
 textValueDirective :: Text -> Parser Text
 textValueDirective name = (string name *> skipSpace *> takeWhile1 (/= ';') <* char ';')
